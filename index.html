@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Traffic Sonification</title>
+<title>The Sound of...</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0a0a;color:#e0e0e0;font-family:-apple-system,'Segoe UI',sans-serif}
@@ -13,9 +13,6 @@ h1{font-size:18px;font-weight:400;color:#fff;margin-bottom:12px}
 .top-bar button{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer;transition:all .2s}
 .top-bar button:hover{background:#222;border-color:#444}
 .top-bar button.active{background:#E24B9A;border-color:#E24B9A;color:#fff}
-.url-bar{display:flex;gap:6px;margin-bottom:10px}
-.url-bar input{flex:1;background:#111;color:#aaa;border:1px solid #222;border-radius:6px;padding:6px 10px;font-size:11px}
-.url-bar button{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer}
 .status{font-size:11px;color:#555;margin-bottom:8px;min-height:14px}
 .video-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;cursor:crosshair}
 video{width:100%;height:100%;object-fit:contain;display:block}
@@ -25,36 +22,25 @@ canvas#motionCanvas{display:none}
 .note-flash.show{opacity:1}
 .mode-badge{position:absolute;top:10px;left:10px;font-size:10px;padding:2px 8px;border-radius:4px;pointer-events:none;z-index:3;background:rgba(226,75,154,.7);color:#fff}
 .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:12px;background:#111;border-radius:8px;border:1px solid #1a1a1a}
-.cg{display:flex;align-items:center;gap:6px;flex:1;min-width:140px}
+.cg{display:flex;align-items:center;gap:6px;flex:1;min-width:120px}
 .cg label{font-size:11px;color:#666;white-space:nowrap}
 .cg input[type="range"]{flex:1;accent-color:#E24B9A;height:3px}
 .cg span{font-size:11px;color:#888;min-width:18px}
 .cg select{background:#1a1a1a;color:#ccc;border:1px solid #2a2a2a;border-radius:5px;padding:4px 8px;font-size:11px}
-button.mute-btn{background:#1a1a1a;color:#ccc;border:1px solid #2a2a2a;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer;transition:all .2s}
-button.mute-btn.active{background:#E24B9A;border-color:#E24B9A;color:#fff}
-.bottom{display:flex;gap:16px;margin-top:8px;align-items:center;flex-wrap:wrap}
-.stat{font-size:11px;color:#444}
-.stat strong{color:#888;font-weight:500}
-.stat .pink{color:#E24B9A}
-.viz{margin-top:8px;height:40px;background:#0d0d0d;border-radius:6px;overflow:hidden}
-canvas#vizCanvas{width:100%;height:100%;display:block}
+.line-btn{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.line-btn:hover{background:#222;border-color:#444}
 input[type="file"]{display:none}
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>Traffic Sonification</h1>
+  <h1>The Sound of...</h1>
   <div class="top-bar">
-    <button id="srcLive" class="active" onclick="switchSource('live')">Live cam</button>
+    <button id="src308" class="active" onclick="switchLocation('bot308')">大度路與立德路口(東南角)即時影像</button>
+    <button id="src309" onclick="switchLocation('bot309')">大度路與立德路口(西南角)即時影像</button>
     <button id="srcCam" onclick="switchSource('cam')">Webcam</button>
     <button id="srcFile" onclick="document.getElementById('fileInput').click()">Upload video</button>
     <input type="file" id="fileInput" accept="video/*">
-    <span style="flex:1"></span>
-    <button id="lineDir" onclick="toggleLineDir()">Line: vertical</button>
-  </div>
-  <div class="url-bar">
-    <input type="text" id="customUrl" placeholder=".m3u8 stream URL" value="https://jtmctrafficcctv2.gov.taipei/NVR/4f991a40-67da-43bf-85b0-8272e14c3b7d/live.m3u8">
-    <button onclick="loadCustomUrl()">Load</button>
   </div>
   <div class="status" id="status"></div>
   <div class="video-wrap" id="videoWrap">
@@ -66,33 +52,32 @@ input[type="file"]{display:none}
   </div>
   <div class="controls">
     <div class="cg"><label>Sensitivity</label><input type="range" min="5" max="80" value="25" id="sensitivity" step="1"><span id="sensVal">25</span></div>
+    <button class="line-btn" id="lineDir" onclick="toggleLineDir()">Line: vertical</button>
     <div class="cg"><label>Scale</label><select id="scaleSelect">
       <option value="pentatonic">Pentatonic</option><option value="major">Major</option><option value="minor">Minor</option><option value="japanese">Japanese</option><option value="blues">Blues</option>
     </select></div>
     <div class="cg"><label>Synth</label><select id="synthType">
       <option value="sine">Sine</option><option value="triangle">Triangle</option><option value="am">AM</option><option value="fm">FM</option><option value="pluck">Pluck</option>
     </select></div>
-    <button class="mute-btn" id="muteBtn" onclick="toggleMute()">Unmute</button>
   </div>
-  <div class="bottom">
-    <div class="stat">Notes: <strong id="noteCount">0</strong></div>
-    <div class="stat">Last: <strong class="pink" id="lastNote">—</strong></div>
-    <div class="stat">Motion: <strong id="motionLevel">0</strong></div>
-  </div>
-  <div class="viz"><canvas id="vizCanvas"></canvas></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <script>
 (function(){
-  const video=document.getElementById('video'),overlay=document.getElementById('overlay'),motionCanvas=document.getElementById('motionCanvas'),vizCanvas=document.getElementById('vizCanvas'),videoWrap=document.getElementById('videoWrap'),noteFlash=document.getElementById('noteFlash'),modeBadge=document.getElementById('modeBadge'),statusEl=document.getElementById('status');
-  const octx=overlay.getContext('2d'),mctx=motionCanvas.getContext('2d'),vctx=vizCanvas.getContext('2d');
+  const video=document.getElementById('video'),overlay=document.getElementById('overlay'),motionCanvas=document.getElementById('motionCanvas'),videoWrap=document.getElementById('videoWrap'),noteFlash=document.getElementById('noteFlash'),modeBadge=document.getElementById('modeBadge'),statusEl=document.getElementById('status');
+  const octx=overlay.getContext('2d'),mctx=motionCanvas.getContext('2d');
 
-  let currentSource='live',linePos=0.5,lineHorizontal=false,muted=true,noteCount=0,audioReady=false;
+  const locations={
+    bot308:{name:'大度路與立德路口(東南角)即時影像',url:'https://jtmctrafficcctv2.gov.taipei/NVR/4f991a40-67da-43bf-85b0-8272e14c3b7d/live.m3u8'},
+    bot309:{name:'大度路與立德路口(西南角)即時影像',url:'https://jtmctrafficcctv2.gov.taipei/NVR/e00dc95d-d6c2-47cd-937d-73365a5658ce/live.m3u8'}
+  };
+
+  let currentSource='live',currentLocation='bot308',linePos=0.5,lineHorizontal=false,noteCount=0,audioReady=false,muted=false;
   let synth,reverb,delayFx,prevFrame=null,canReadPixels=false,hlsInstance=null;
   const NUM_ZONES=12;
-  let zoneCooldowns=new Array(NUM_ZONES).fill(0),zoneActivity=new Array(NUM_ZONES).fill(0),vizHistory=[],MAX_VIZ=200;
+  let zoneCooldowns=new Array(NUM_ZONES).fill(0),zoneActivity=new Array(NUM_ZONES).fill(0);
 
   const scales={
     pentatonic:[48,50,52,55,57,60,62,64,67,69,72,74,76,79,81],
@@ -106,12 +91,12 @@ input[type="file"]{display:none}
   function midiFreq(m){return 440*Math.pow(2,(m-69)/12)}
   const zoneColors=['#5DCAA5','#85B7EB','#AFA9EC','#ED93B1','#F0997B','#FAC775','#97C459','#E24B4A','#5DCAA5','#85B7EB','#AFA9EC','#ED93B1'];
 
-  // Audio
+  // Audio — always on, init on first user interaction
   function initAudio(){
     if(audioReady)return;Tone.start();
     reverb=new Tone.Reverb({decay:4,wet:.35}).toDestination();
     delayFx=new Tone.FeedbackDelay({delayTime:'8n',feedback:.2,wet:.15}).connect(reverb);
-    makeSynth();audioReady=true;
+    makeSynth();audioReady=true;muted=false;
   }
   function makeSynth(){
     if(synth)synth.dispose();
@@ -124,11 +109,8 @@ input[type="file"]{display:none}
   document.getElementById('synthType').addEventListener('change',()=>{if(audioReady)makeSynth()});
   document.getElementById('sensitivity').addEventListener('input',e=>{document.getElementById('sensVal').textContent=e.target.value});
 
-  window.toggleMute=function(){
-    const btn=document.getElementById('muteBtn');
-    if(muted){initAudio();muted=false;btn.textContent='Mute';btn.classList.add('active')}
-    else{muted=true;btn.textContent='Unmute';btn.classList.remove('active')}
-  };
+  // Init audio on first click anywhere
+  document.addEventListener('click',function startAudio(){initAudio();document.removeEventListener('click',startAudio);},{once:true});
 
   function playNote(zone,intensity){
     if(muted||!audioReady)return;
@@ -142,8 +124,6 @@ input[type="file"]{display:none}
     }catch(e){}
     noteCount++;
     const name=midiName(midi);
-    document.getElementById('noteCount').textContent=noteCount;
-    document.getElementById('lastNote').textContent=name;
     noteFlash.textContent=name;noteFlash.classList.add('show');
     setTimeout(()=>noteFlash.classList.remove('show'),250);
   }
@@ -181,19 +161,30 @@ input[type="file"]{display:none}
     }else{statusEl.textContent='HLS not supported in this browser.';}
   }
 
-  // Source switching
+  // Clear active state on all source buttons
+  function clearActive(){
+    document.querySelectorAll('.top-bar button').forEach(b=>b.classList.remove('active'));
+  }
+
+  // Switch between camera locations
+  window.switchLocation=function(locId){
+    currentSource='live';currentLocation=locId;prevFrame=null;canReadPixels=false;destroyHls();
+    clearActive();
+    video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
+    video.style.display='block';statusEl.textContent='';
+    document.getElementById(locId==='bot308'?'src308':'src309').classList.add('active');
+    modeBadge.textContent='LIVE';
+    loadHls(locations[locId].url);
+  };
+
+  // Source switching (webcam / file)
   window.switchSource=function(src){
     currentSource=src;prevFrame=null;canReadPixels=false;destroyHls();
-    document.querySelectorAll('.top-bar button:not(#lineDir)').forEach(b=>b.classList.remove('active'));
+    clearActive();
     video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
     video.style.display='block';statusEl.textContent='';
 
-    if(src==='live'){
-      document.getElementById('srcLive').classList.add('active');
-      modeBadge.textContent='LIVE';
-      loadHls(document.getElementById('customUrl').value.trim());
-    }
-    else if(src==='cam'){
+    if(src==='cam'){
       document.getElementById('srcCam').classList.add('active');
       modeBadge.textContent='WEBCAM';
       navigator.mediaDevices.getUserMedia({video:{width:640,height:480}}).then(stream=>{
@@ -205,19 +196,10 @@ input[type="file"]{display:none}
     }
   };
 
-  window.loadCustomUrl=function(){
-    const url=document.getElementById('customUrl').value.trim();
-    if(!url)return;
-    currentSource='live';prevFrame=null;canReadPixels=false;
-    document.querySelectorAll('.top-bar button:not(#lineDir)').forEach(b=>b.classList.remove('active'));
-    document.getElementById('srcLive').classList.add('active');
-    loadHls(url);
-  };
-
   document.getElementById('fileInput').addEventListener('change',function(e){
     const file=e.target.files[0];if(!file)return;
     currentSource='file';prevFrame=null;destroyHls();
-    document.querySelectorAll('.top-bar button:not(#lineDir)').forEach(b=>b.classList.remove('active'));
+    clearActive();
     document.getElementById('srcFile').classList.add('active');
     video.srcObject=null;video.src=URL.createObjectURL(file);video.play();
     canReadPixels=true;modeBadge.textContent='FILE';
@@ -231,7 +213,7 @@ input[type="file"]{display:none}
     linePos=Math.max(.05,Math.min(.95,linePos));
   });
 
-  // Motion detection — supports both vertical and horizontal line
+  // Motion detection
   function detectMotion(){
     if(!canReadPixels||video.readyState<2||video.videoWidth===0)return null;
     const w=160,h=120;motionCanvas.width=w;motionCanvas.height=h;
@@ -301,14 +283,12 @@ input[type="file"]{display:none}
   function drawOverlay(){
     const w=overlay.width,h=overlay.height;
     octx.clearRect(0,0,w,h);
-    // Draw line
     octx.save();octx.strokeStyle='#E24B9A';octx.lineWidth=2;
     octx.shadowColor='#E24B9A';octx.shadowBlur=10;
     octx.beginPath();
     if(lineHorizontal){const ly=linePos*h;octx.moveTo(0,ly);octx.lineTo(w,ly);}
     else{const lx=linePos*w;octx.moveTo(lx,0);octx.lineTo(lx,h);}
     octx.stroke();octx.restore();
-    // Zone activity
     const zSize=lineHorizontal?w/NUM_ZONES:h/NUM_ZONES;
     for(let i=0;i<NUM_ZONES;i++){
       const a=zoneActivity[i];if(a<=0)continue;
@@ -328,25 +308,10 @@ input[type="file"]{display:none}
     }
   }
 
-  // Visualizer
-  function drawViz(){
-    const w=vizCanvas.width,h=vizCanvas.height;
-    vctx.fillStyle='rgba(13,13,13,.3)';vctx.fillRect(0,0,w,h);
-    const bw=w/MAX_VIZ;
-    for(let t=0;t<vizHistory.length;t++){
-      const zones=vizHistory[t],x=(t/MAX_VIZ)*w,zH=h/NUM_ZONES;
-      for(let z=0;z<NUM_ZONES;z++){
-        if(zones[z]>0){vctx.fillStyle=zoneColors[z];vctx.globalAlpha=Math.min(1,zones[z]*3);vctx.fillRect(x,z*zH,bw+1,zH);}
-      }
-    }
-    vctx.globalAlpha=1;
-  }
-
   // Resize
   function resize(){
     const w=videoWrap.clientWidth,h=videoWrap.clientHeight;
     overlay.width=w;overlay.height=h;
-    vizCanvas.width=vizCanvas.parentElement.clientWidth;vizCanvas.height=vizCanvas.parentElement.clientHeight;
   }
   window.addEventListener('resize',resize);
 
@@ -361,21 +326,16 @@ input[type="file"]{display:none}
     if(canReadPixels){
       const zm=detectMotion();
       if(zm){
-        let a=0;
-        for(let i=0;i<NUM_ZONES;i++){if(zm[i]>.15&&zoneCooldowns[i]===0){playNote(i,zm[i]);zoneCooldowns[i]=10;zoneActivity[i]=1;a++;}}
-        document.getElementById('motionLevel').textContent=Math.round(zm.reduce((s,v)=>s+v,0)*100);
+        for(let i=0;i<NUM_ZONES;i++){if(zm[i]>.15&&zoneCooldowns[i]===0){playNote(i,zm[i]);zoneCooldowns[i]=10;zoneActivity[i]=1;}}
       }
     }else if(currentSource==='live'){
       updateSim(overlay.width,overlay.height);
     }
 
     drawOverlay();
-    vizHistory.push([...zoneActivity]);
-    if(vizHistory.length>MAX_VIZ)vizHistory.shift();
-    drawViz();
   }
 
-  switchSource('live');
+  switchLocation('bot308');
   loop();
 })();
 </script>
