@@ -16,6 +16,7 @@ h1{font-size:18px;font-weight:400;color:#fff;margin-bottom:12px}
 .status{font-size:11px;color:#555;margin-bottom:8px;min-height:14px}
 .video-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;cursor:crosshair}
 video{width:100%;height:100%;object-fit:contain;display:block}
+video.mirror{transform:scaleX(-1)}
 canvas#overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2}
 canvas#motionCanvas{display:none}
 .note-flash{position:absolute;top:10px;right:12px;font-size:24px;font-weight:300;color:#E24B9A;opacity:0;transition:opacity .12s;text-shadow:0 0 16px rgba(226,75,154,.5);pointer-events:none;z-index:3}
@@ -109,8 +110,16 @@ input[type="file"]{display:none}
   document.getElementById('synthType').addEventListener('change',()=>{if(audioReady)makeSynth()});
   document.getElementById('sensitivity').addEventListener('input',e=>{document.getElementById('sensVal').textContent=e.target.value});
 
-  // Init audio on first click anywhere
-  document.addEventListener('click',function startAudio(){initAudio();document.removeEventListener('click',startAudio);},{once:true});
+  // Init audio on first user interaction (click or touch for iOS)
+  function startAudio(){
+    initAudio();
+    // iOS requires explicit resume of AudioContext
+    if(Tone.context.state!=='running') Tone.context.resume();
+    document.removeEventListener('click',startAudio);
+    document.removeEventListener('touchstart',startAudio);
+  }
+  document.addEventListener('click',startAudio);
+  document.addEventListener('touchstart',startAudio);
 
   function playNote(zone,intensity){
     if(muted||!audioReady)return;
@@ -171,7 +180,7 @@ input[type="file"]{display:none}
     currentSource='live';currentLocation=locId;prevFrame=null;canReadPixels=false;destroyHls();
     clearActive();
     video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
-    video.style.display='block';statusEl.textContent='';
+    video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');
     document.getElementById(locId==='bot308'?'src308':'src309').classList.add('active');
     modeBadge.textContent='LIVE';
     loadHls(locations[locId].url);
@@ -182,12 +191,12 @@ input[type="file"]{display:none}
     currentSource=src;prevFrame=null;canReadPixels=false;destroyHls();
     clearActive();
     video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
-    video.style.display='block';statusEl.textContent='';
+    video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');
 
     if(src==='cam'){
       document.getElementById('srcCam').classList.add('active');
-      modeBadge.textContent='WEBCAM';
-      navigator.mediaDevices.getUserMedia({video:{width:640,height:480}}).then(stream=>{
+      modeBadge.textContent='WEBCAM';video.classList.add('mirror');
+      navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}}).then(stream=>{
         video.srcObject=stream;video.play();canReadPixels=true;
       }).catch(()=>{statusEl.textContent='Camera access denied.';});
     }
