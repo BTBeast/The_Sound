@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Sound of...</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#e0e0e0;font-family:-apple-system,'Segoe UI',sans-serif}
+.container{max-width:960px;margin:0 auto;padding:20px}
+h1{font-size:18px;font-weight:400;color:#fff;margin-bottom:12px}
+.top-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.top-bar button{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer;transition:all .2s}
+.top-bar button:hover{background:#222;border-color:#444}
+.top-bar button.active{background:#E24B9A;border-color:#E24B9A;color:#fff}
+.status{font-size:11px;color:#555;margin-bottom:8px;min-height:14px}
+.video-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;cursor:crosshair;transition:aspect-ratio .3s}
+video{width:100%;height:100%;object-fit:contain;display:block}
+video.mirror{transform:scaleX(-1)}
+canvas.mirror{transform:scaleX(-1)}
+canvas#overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2}
+canvas#motionCanvas{display:none}
+.note-flash{position:absolute;top:10px;right:12px;font-size:24px;font-weight:300;color:#E24B9A;opacity:0;transition:opacity .12s;text-shadow:0 0 16px rgba(226,75,154,.5);pointer-events:none;z-index:3}
+.note-flash.show{opacity:1}
+.mode-badge{position:absolute;top:10px;left:10px;font-size:10px;padding:2px 8px;border-radius:4px;pointer-events:none;z-index:3;background:rgba(226,75,154,.7);color:#fff}
+.tap-hint{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:5;cursor:pointer;transition:opacity .3s}
+.tap-hint span{color:#fff;font-size:14px;padding:10px 20px;border:1px solid rgba(255,255,255,.3);border-radius:8px;backdrop-filter:blur(4px)}
+.tap-hint.hidden{opacity:0;pointer-events:none}
+.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:12px;background:#111;border-radius:8px;border:1px solid #1a1a1a}
+.cg{display:flex;align-items:center;gap:6px;flex:1;min-width:120px}
+.cg label{font-size:11px;color:#666;white-space:nowrap}
+.cg input[type="range"]{flex:1;accent-color:#E24B9A;height:3px}
+.cg span{font-size:11px;color:#888;min-width:18px}
+.cg select{background:#1a1a1a;color:#ccc;border:1px solid #2a2a2a;border-radius:5px;padding:4px 8px;font-size:11px}
+.line-btn{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.line-btn:hover{background:#222;border-color:#444}
+input[type="file"]{display:none}
+/* Mobile: settings toggle button + slide-up panel */
+.settings-toggle{display:none;position:absolute;bottom:10px;right:10px;z-index:4;width:36px;height:36px;border-radius:50%;background:rgba(30,30,30,.85);border:1px solid #333;color:#aaa;font-size:18px;cursor:pointer;backdrop-filter:blur(6px);line-height:36px;text-align:center}
+@media(max-width:600px){
+  .container{padding:10px}
+  h1{font-size:15px;margin-bottom:6px}
+  .top-bar{gap:4px;margin-bottom:6px}
+  .top-bar button{padding:4px 7px;font-size:9px}
+  .status{margin-bottom:4px}
+  .controls{position:fixed;bottom:0;left:0;right:0;z-index:20;margin:0;border-radius:14px 14px 0 0;padding:16px 16px 24px;background:rgba(17,17,17,.97);border:1px solid #222;border-bottom:none;transform:translateY(100%);transition:transform .3s ease;backdrop-filter:blur(10px);gap:14px;flex-direction:column;align-items:stretch}
+  .controls.open{transform:translateY(0)}
+  .controls .cg{min-width:unset;width:100%;flex:unset}
+  .controls .cg label{min-width:70px}
+  .controls .line-btn{width:100%;text-align:center;padding:8px}
+  .settings-toggle{display:block}
+  .note-flash{font-size:18px;top:6px;right:8px}
+  .tap-hint span{font-size:12px;padding:8px 14px}
+  .settings-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:19;background:rgba(0,0,0,.4)}
+  .settings-overlay.open{display:block}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>The Sound of...</h1>
+  <div class="top-bar">
+    <button id="src308" class="active" onclick="switchLocation('bot308')">大度路與立德路口(東南角)即時影像</button>
+    <button id="src309" onclick="switchLocation('bot309')">大度路與立德路口(西南角)即時影像</button>
+    <button id="srcCam" onclick="switchSource('cam')">Webcam</button>
+    <button id="srcFile" onclick="document.getElementById('fileInput').click()">Upload video</button>
+    <input type="file" id="fileInput" accept="video/*">
+  </div>
+  <div class="status" id="status"></div>
+  <div class="video-wrap" id="videoWrap">
+    <video id="video" muted playsinline loop></video>
+    <canvas id="overlay"></canvas>
+    <canvas id="motionCanvas"></canvas>
+    <div class="note-flash" id="noteFlash">C4</div>
+    <div class="mode-badge" id="modeBadge">LIVE</div>
+    <div class="tap-hint" id="tapHint" onclick="this.classList.add('hidden')"><span>Tap to enable sound</span></div>
+    <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">&#9881;</button>
+  </div>
+  <div class="settings-overlay" id="settingsOverlay" onclick="toggleSettings()"></div>
+  <div class="controls" id="controlsPanel">
+    <div class="cg"><label>Sensitivity</label><input type="range" min="5" max="80" value="25" id="sensitivity" step="1"><span id="sensVal">25</span></div>
+    <button class="line-btn" id="lineDir" onclick="toggleLineDir()">Line: vertical</button>
+    <div class="cg"><label>Scale</label><select id="scaleSelect">
+      <option value="pentatonic">Pentatonic</option><option value="major">Major</option><option value="minor">Minor</option><option value="japanese">Japanese</option><option value="blues">Blues</option>
+    </select></div>
+    <div class="cg"><label>Synth</label><select id="synthType">
+      <option value="sine">Sine</option><option value="triangle">Triangle</option><option value="am">AM</option><option value="fm">FM</option><option value="pluck">Pluck</option>
+    </select></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script>
+(function(){
+  const video=document.getElementById('video'),overlay=document.getElementById('overlay'),motionCanvas=document.getElementById('motionCanvas'),videoWrap=document.getElementById('videoWrap'),noteFlash=document.getElementById('noteFlash'),modeBadge=document.getElementById('modeBadge'),statusEl=document.getElementById('status');
+  const octx=overlay.getContext('2d'),mctx=motionCanvas.getContext('2d');
+
+  const locations={
+    bot308:{name:'大度路與立德路口(東南角)即時影像',url:'https://jtmctrafficcctv2.gov.taipei/NVR/4f991a40-67da-43bf-85b0-8272e14c3b7d/live.m3u8'},
+    bot309:{name:'大度路與立德路口(西南角)即時影像',url:'https://jtmctrafficcctv2.gov.taipei/NVR/e00dc95d-d6c2-47cd-937d-73365a5658ce/live.m3u8'}
+  };
+
+  let currentSource='live',currentLocation='bot308',linePos=0.5,lineHorizontal=false,noteCount=0,audioReady=false,muted=false;
+  let synth,reverb,delayFx,prevFrame=null,canReadPixels=false,hlsInstance=null;
+  const NUM_ZONES=12;
+  let zoneCooldowns=new Array(NUM_ZONES).fill(0),zoneActivity=new Array(NUM_ZONES).fill(0);
+
+  const scales={
+    pentatonic:[48,50,52,55,57,60,62,64,67,69,72,74,76,79,81],
+    major:[48,50,52,53,55,57,59,60,62,64,65,67,69,71,72],
+    minor:[48,50,51,53,55,56,58,60,62,63,65,67,68,70,72],
+    japanese:[48,49,53,55,56,60,61,65,67,68,72,73,77,79,80],
+    blues:[48,51,53,54,55,58,60,63,65,66,67,70,72,75,77]
+  };
+  const noteNames=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  function midiName(m){return noteNames[m%12]+(Math.floor(m/12)-1)}
+  function midiFreq(m){return 440*Math.pow(2,(m-69)/12)}
+  const zoneColors=['#5DCAA5','#85B7EB','#AFA9EC','#ED93B1','#F0997B','#FAC775','#97C459','#E24B4A','#5DCAA5','#85B7EB','#AFA9EC','#ED93B1'];
+
+  // Audio — always on, init on first user interaction
+  // iOS WebKit requires synchronous AudioContext.resume() inside gesture handler
+  function initAudio(){
+    if(audioReady)return;
+    // Synchronous calls — must NOT use await, iOS breaks gesture chain
+    Tone.start();
+    Tone.context.resume();
+    // iOS unlock trick: play a silent buffer to unblock audio
+    try{
+      const buf=Tone.context.createBuffer(1,1,22050);
+      const src=Tone.context.createBufferSource();
+      src.buffer=buf;src.connect(Tone.context.destination);
+      src.start(0);
+    }catch(e){}
+    reverb=new Tone.Reverb({decay:4,wet:.35}).toDestination();
+    delayFx=new Tone.FeedbackDelay({delayTime:'8n',feedback:.2,wet:.15}).connect(reverb);
+    makeSynth();audioReady=true;muted=false;
+    statusEl.textContent='';
+  }
+  function makeSynth(){
+    if(synth)synth.dispose();
+    const t=document.getElementById('synthType').value;
+    if(t==='pluck')synth=new Tone.PluckSynth({volume:-8}).connect(delayFx);
+    else if(t==='am')synth=new Tone.AMSynth({volume:-10,oscillator:{type:'sine'},envelope:{attack:.05,decay:.3,sustain:.2,release:1.5}}).connect(delayFx);
+    else if(t==='fm')synth=new Tone.FMSynth({volume:-10,modulationIndex:3,envelope:{attack:.02,decay:.2,sustain:.1,release:1}}).connect(delayFx);
+    else synth=new Tone.Synth({volume:-10,oscillator:{type:t},envelope:{attack:.02,decay:.3,sustain:.15,release:1.5}}).connect(delayFx);
+  }
+  document.getElementById('synthType').addEventListener('change',()=>{if(audioReady)makeSynth()});
+  document.getElementById('sensitivity').addEventListener('input',e=>{document.getElementById('sensVal').textContent=e.target.value});
+
+  // Init audio on first user interaction — multiple events for iOS
+  function startAudio(){
+    initAudio();
+    document.getElementById('tapHint').classList.add('hidden');
+    document.removeEventListener('click',startAudio);
+    document.removeEventListener('touchstart',startAudio);
+    document.removeEventListener('touchend',startAudio);
+  }
+  document.addEventListener('click',startAudio);
+  document.addEventListener('touchstart',startAudio,{passive:true});
+  document.addEventListener('touchend',startAudio,{passive:true});
+
+  // Periodically retry resuming context (iOS sometimes suspends it again)
+  setInterval(()=>{
+    if(audioReady&&Tone.context.state!=='running'){
+      Tone.context.resume();
+    }
+  },1000);
+
+  function playNote(zone,intensity){
+    if(muted||!audioReady)return;
+    // Try to resume if suspended (iOS can re-suspend)
+    if(Tone.context.state!=='running'){Tone.context.resume();return;}
+    const sc=scales[document.getElementById('scaleSelect').value];
+    const idx=Math.floor((zone/NUM_ZONES)*sc.length);
+    const midi=sc[Math.min(idx,sc.length-1)];
+    try{
+      const freq=midiFreq(midi),vol=Math.min(.8,.3+intensity*2);
+      if(document.getElementById('synthType').value==='pluck')synth.triggerAttack(freq,Tone.now());
+      else synth.triggerAttackRelease(freq,'8n',Tone.now(),vol);
+    }catch(e){}
+    noteCount++;
+    const name=midiName(midi);
+    noteFlash.textContent=name;noteFlash.classList.add('show');
+    setTimeout(()=>noteFlash.classList.remove('show'),250);
+  }
+
+  // Settings panel toggle (mobile)
+  window.toggleSettings=function(){
+    const panel=document.getElementById('controlsPanel');
+    const overlay=document.getElementById('settingsOverlay');
+    panel.classList.toggle('open');
+    overlay.classList.toggle('open');
+  };
+
+  // Line direction toggle
+  window.toggleLineDir=function(){
+    lineHorizontal=!lineHorizontal;
+    document.getElementById('lineDir').textContent='Line: '+(lineHorizontal?'horizontal':'vertical');
+    linePos=0.5;prevFrame=null;
+  };
+
+  // HLS
+  function destroyHls(){if(hlsInstance){hlsInstance.destroy();hlsInstance=null;}}
+
+  function loadHls(url){
+    destroyHls();
+    video.style.display='block';
+    video.removeAttribute('crossorigin');
+    modeBadge.textContent='connecting...';
+    statusEl.textContent='Connecting...';
+    if(typeof Hls!=='undefined'&&Hls.isSupported()){
+      hlsInstance=new Hls({enableWorker:true,lowLatencyMode:true});
+      hlsInstance.loadSource(url);hlsInstance.attachMedia(video);
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED,()=>{
+        video.play().then(()=>{
+          modeBadge.textContent='LIVE';statusEl.textContent='';
+          // HLS.js uses MSE (blob URL) so canvas should not be tainted — try reading pixels
+          setTimeout(()=>{canReadPixels=true;},500);
+        }).catch(()=>{});
+      });
+      hlsInstance.on(Hls.Events.ERROR,(ev,data)=>{
+        if(data.fatal){modeBadge.textContent='ERROR';statusEl.textContent='Stream failed — open this file directly in Chrome if viewing in Cowork.';}
+      });
+    }else if(video.canPlayType('application/vnd.apple.mpegurl')){
+      video.src=url;
+      video.addEventListener('loadedmetadata',()=>{video.play().then(()=>{modeBadge.textContent='LIVE';statusEl.textContent='';setTimeout(()=>{canReadPixels=true;},500);}).catch(()=>{});},{once:true});
+    }else{statusEl.textContent='HLS not supported in this browser.';}
+  }
+
+  // Clear active state on all source buttons
+  function clearActive(){
+    document.querySelectorAll('.top-bar button').forEach(b=>b.classList.remove('active'));
+  }
+
+  // Switch between camera locations
+  window.switchLocation=function(locId){
+    currentSource='live';currentLocation=locId;prevFrame=null;canReadPixels=false;destroyHls();
+    clearActive();
+    video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
+    video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');overlay.classList.remove('mirror');
+    videoWrap.style.aspectRatio='16/9';
+    document.getElementById(locId==='bot308'?'src308':'src309').classList.add('active');
+    modeBadge.textContent='LIVE';
+    loadHls(locations[locId].url);
+  };
+
+  // Source switching (webcam / file)
+  window.switchSource=function(src){
+    currentSource=src;prevFrame=null;canReadPixels=false;destroyHls();
+    clearActive();
+    video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
+    video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');overlay.classList.remove('mirror');
+
+    if(src==='cam'){
+      document.getElementById('srcCam').classList.add('active');
+      modeBadge.textContent='WEBCAM';video.classList.add('mirror');overlay.classList.add('mirror');
+      navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}}).then(stream=>{
+        video.srcObject=stream;video.play();canReadPixels=true;
+      }).catch(()=>{statusEl.textContent='Camera access denied.';});
+    }
+    else if(src==='file'){
+      document.getElementById('srcFile').classList.add('active');
+    }
+  };
+
+  document.getElementById('fileInput').addEventListener('change',function(e){
+    const file=e.target.files[0];if(!file)return;
+    currentSource='file';prevFrame=null;destroyHls();
+    clearActive();
+    document.getElementById('srcFile').classList.add('active');
+    video.srcObject=null;video.src=URL.createObjectURL(file);video.play();
+    canReadPixels=true;modeBadge.textContent='FILE';
+  });
+
+  // Adapt aspect ratio to video (portrait videos get taller container)
+  video.addEventListener('loadedmetadata',()=>{
+    const vw=video.videoWidth,vh=video.videoHeight;
+    if(vw&&vh){
+      const ratio=vw/vh;
+      // For portrait videos (taller than wide), use actual ratio; for landscape keep 16:9
+      videoWrap.style.aspectRatio=ratio<1?ratio.toFixed(3):'16/9';
+    }
+  });
+
+  // Click to place line
+  videoWrap.addEventListener('click',e=>{
+    const rect=videoWrap.getBoundingClientRect();
+    const isMirrored=video.classList.contains('mirror');
+    if(lineHorizontal) linePos=(e.clientY-rect.top)/rect.height;
+    else{
+      let x=(e.clientX-rect.left)/rect.width;
+      linePos=isMirrored?1-x:x;
+    }
+    linePos=Math.max(.05,Math.min(.95,linePos));
+  });
+
+  // Motion detection
+  function detectMotion(){
+    if(!canReadPixels||video.readyState<2||video.videoWidth===0)return null;
+    const w=160,h=120;motionCanvas.width=w;motionCanvas.height=h;
+    try{
+      mctx.drawImage(video,0,0,w,h);
+      const frame=mctx.getImageData(0,0,w,h);
+      if(!prevFrame){prevFrame=frame;return null}
+      const raw=parseInt(document.getElementById('sensitivity').value);
+      const threshold=85-raw; // invert: higher slider = lower threshold = more sensitive
+      const sw=3,zoneMotion=new Array(NUM_ZONES).fill(0);
+
+      if(lineHorizontal){
+        const ly=Math.floor(linePos*h),zoneW=Math.floor(w/NUM_ZONES);
+        for(let zone=0;zone<NUM_ZONES;zone++){
+          let mp=0,tp=0;
+          const xS=zone*zoneW,xE=Math.min(xS+zoneW,w);
+          for(let x=xS;x<xE;x++){for(let dy=-sw;dy<=sw;dy++){
+            const y=Math.max(0,Math.min(h-1,ly+dy)),i=(y*w+x)*4;
+            const diff=(Math.abs(frame.data[i]-prevFrame.data[i])+Math.abs(frame.data[i+1]-prevFrame.data[i+1])+Math.abs(frame.data[i+2]-prevFrame.data[i+2]))/3;
+            if(diff>threshold)mp++;tp++;
+          }}
+          zoneMotion[zone]=tp>0?mp/tp:0;
+        }
+      }else{
+        const lx=Math.floor(linePos*w),zoneH=Math.floor(h/NUM_ZONES);
+        for(let zone=0;zone<NUM_ZONES;zone++){
+          let mp=0,tp=0;
+          const yS=zone*zoneH,yE=Math.min(yS+zoneH,h);
+          for(let y=yS;y<yE;y++){for(let dx=-sw;dx<=sw;dx++){
+            const x=Math.max(0,Math.min(w-1,lx+dx)),i=(y*w+x)*4;
+            const diff=(Math.abs(frame.data[i]-prevFrame.data[i])+Math.abs(frame.data[i+1]-prevFrame.data[i+1])+Math.abs(frame.data[i+2]-prevFrame.data[i+2]))/3;
+            if(diff>threshold)mp++;tp++;
+          }}
+          zoneMotion[zone]=tp>0?mp/tp:0;
+        }
+      }
+      prevFrame=frame;return zoneMotion;
+    }catch(e){canReadPixels=false;return null}
+  }
+
+
+  // Overlay
+  function drawOverlay(){
+    const w=overlay.width,h=overlay.height;
+    octx.clearRect(0,0,w,h);
+    octx.save();octx.strokeStyle='#E24B9A';octx.lineWidth=2;
+    octx.shadowColor='#E24B9A';octx.shadowBlur=10;
+    octx.beginPath();
+    if(lineHorizontal){const ly=linePos*h;octx.moveTo(0,ly);octx.lineTo(w,ly);}
+    else{const lx=linePos*w;octx.moveTo(lx,0);octx.lineTo(lx,h);}
+    octx.stroke();octx.restore();
+    const zSize=lineHorizontal?w/NUM_ZONES:h/NUM_ZONES;
+    for(let i=0;i<NUM_ZONES;i++){
+      const a=zoneActivity[i];if(a<=0)continue;
+      octx.fillStyle=zoneColors[i];octx.globalAlpha=a*.45;
+      if(lineHorizontal){
+        const x=i*zSize,ly=linePos*h;
+        octx.fillRect(x,ly-16,zSize,32);
+        octx.globalAlpha=a*.3;octx.strokeStyle=zoneColors[i];octx.lineWidth=1.5;
+        octx.beginPath();octx.arc(x+zSize/2,ly,a*30,0,Math.PI*2);octx.stroke();
+      }else{
+        const y=i*zSize,lx=linePos*w;
+        octx.fillRect(lx-16,y,32,zSize);
+        octx.globalAlpha=a*.3;octx.strokeStyle=zoneColors[i];octx.lineWidth=1.5;
+        octx.beginPath();octx.arc(lx,y+zSize/2,a*30,0,Math.PI*2);octx.stroke();
+      }
+      octx.globalAlpha=1;
+    }
+  }
+
+  // Resize
+  function resize(){
+    const w=videoWrap.clientWidth,h=videoWrap.clientHeight;
+    overlay.width=w;overlay.height=h;
+  }
+  window.addEventListener('resize',resize);
+
+  // Main loop
+  let fc=0;
+  function loop(){
+    requestAnimationFrame(loop);
+    fc++;if(fc%2!==0)return;
+    resize();
+    for(let i=0;i<NUM_ZONES;i++){if(zoneCooldowns[i]>0)zoneCooldowns[i]--;zoneActivity[i]*=.9;}
+
+    if(canReadPixels){
+      const zm=detectMotion();
+      if(zm){
+        for(let i=0;i<NUM_ZONES;i++){if(zm[i]>.15&&zoneCooldowns[i]===0){playNote(i,zm[i]);zoneCooldowns[i]=10;zoneActivity[i]=1;}}
+      }
+    }
+
+    drawOverlay();
+  }
+
+  switchLocation('bot308');
+  loop();
+})();
+</script>
+</body>
+</html>
