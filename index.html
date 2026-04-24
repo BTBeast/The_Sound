@@ -17,6 +17,7 @@ h1{font-size:18px;font-weight:400;color:#fff;margin-bottom:12px}
 .video-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;cursor:crosshair}
 video{width:100%;height:100%;object-fit:contain;display:block}
 video.mirror{transform:scaleX(-1)}
+canvas.mirror{transform:scaleX(-1)}
 canvas#overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2}
 canvas#motionCanvas{display:none}
 .note-flash{position:absolute;top:10px;right:12px;font-size:24px;font-weight:300;color:#E24B9A;opacity:0;transition:opacity .12s;text-shadow:0 0 16px rgba(226,75,154,.5);pointer-events:none;z-index:3}
@@ -184,7 +185,9 @@ input[type="file"]{display:none}
       hlsInstance.loadSource(url);hlsInstance.attachMedia(video);
       hlsInstance.on(Hls.Events.MANIFEST_PARSED,()=>{
         video.play().then(()=>{
-          modeBadge.textContent='LIVE';statusEl.textContent='';canReadPixels=false;
+          modeBadge.textContent='LIVE';statusEl.textContent='';
+          // HLS.js uses MSE (blob URL) so canvas should not be tainted — try reading pixels
+          setTimeout(()=>{canReadPixels=true;},500);
         }).catch(()=>{});
       });
       hlsInstance.on(Hls.Events.ERROR,(ev,data)=>{
@@ -192,7 +195,7 @@ input[type="file"]{display:none}
       });
     }else if(video.canPlayType('application/vnd.apple.mpegurl')){
       video.src=url;
-      video.addEventListener('loadedmetadata',()=>{video.play().then(()=>{modeBadge.textContent='LIVE';statusEl.textContent='';}).catch(()=>{});},{once:true});
+      video.addEventListener('loadedmetadata',()=>{video.play().then(()=>{modeBadge.textContent='LIVE';statusEl.textContent='';setTimeout(()=>{canReadPixels=true;},500);}).catch(()=>{});},{once:true});
     }else{statusEl.textContent='HLS not supported in this browser.';}
   }
 
@@ -206,7 +209,7 @@ input[type="file"]{display:none}
     currentSource='live';currentLocation=locId;prevFrame=null;canReadPixels=false;destroyHls();
     clearActive();
     video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
-    video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');
+    video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');overlay.classList.remove('mirror');
     document.getElementById(locId==='bot308'?'src308':'src309').classList.add('active');
     modeBadge.textContent='LIVE';
     loadHls(locations[locId].url);
@@ -217,11 +220,11 @@ input[type="file"]{display:none}
     currentSource=src;prevFrame=null;canReadPixels=false;destroyHls();
     clearActive();
     video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
-    video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');
+    video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');overlay.classList.remove('mirror');
 
     if(src==='cam'){
       document.getElementById('srcCam').classList.add('active');
-      modeBadge.textContent='WEBCAM';video.classList.add('mirror');
+      modeBadge.textContent='WEBCAM';video.classList.add('mirror');overlay.classList.add('mirror');
       navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}}).then(stream=>{
         video.srcObject=stream;video.play();canReadPixels=true;
       }).catch(()=>{statusEl.textContent='Camera access denied.';});
@@ -243,8 +246,12 @@ input[type="file"]{display:none}
   // Click to place line
   videoWrap.addEventListener('click',e=>{
     const rect=videoWrap.getBoundingClientRect();
+    const isMirrored=video.classList.contains('mirror');
     if(lineHorizontal) linePos=(e.clientY-rect.top)/rect.height;
-    else linePos=(e.clientX-rect.left)/rect.width;
+    else{
+      let x=(e.clientX-rect.left)/rect.width;
+      linePos=isMirrored?1-x:x;
+    }
     linePos=Math.max(.05,Math.min(.95,linePos));
   });
 
@@ -256,7 +263,8 @@ input[type="file"]{display:none}
       mctx.drawImage(video,0,0,w,h);
       const frame=mctx.getImageData(0,0,w,h);
       if(!prevFrame){prevFrame=frame;return null}
-      const threshold=parseInt(document.getElementById('sensitivity').value);
+      const raw=parseInt(document.getElementById('sensitivity').value);
+      const threshold=85-raw; // invert: higher slider = lower threshold = more sensitive
       const sw=3,zoneMotion=new Array(NUM_ZONES).fill(0);
 
       if(lineHorizontal){
@@ -288,31 +296,6 @@ input[type="file"]{display:none}
     }catch(e){canReadPixels=false;return null}
   }
 
-  // Sim engine (sound-only fallback for live when pixels unavailable)
-  const lanes=[];const cars=[];
-  function initSim(){
-    lanes.length=0;
-    for(let i=0;i<6;i++){lanes.push({y:40+i*55,dir:i<3?1:-1,baseSpeed:1.5+Math.random()*2,spawnRate:.015+Math.random()*.015});}
-  }
-  initSim();
-  function updateSim(W,H){
-    for(const lane of lanes){
-      if(Math.random()<lane.spawnRate){
-        cars.push({x:lane.dir>0?-30:W+30,y:lane.y+(Math.random()-.5)*20,w:16+Math.random()*28,vx:lane.baseSpeed*(.7+Math.random()*.6)*lane.dir,crossed:false});
-      }
-    }
-    const lx=linePos*W;
-    for(let i=cars.length-1;i>=0;i--){
-      const c=cars[i],px=c.x;c.x+=c.vx;
-      const f=c.vx>0?c.x+c.w:c.x,pf=c.vx>0?px+c.w:px;
-      if(!c.crossed&&((pf<lx&&f>=lx)||(pf>lx&&f<=lx))){
-        c.crossed=true;
-        const zone=Math.min(NUM_ZONES-1,Math.max(0,Math.floor((c.y/H)*NUM_ZONES)));
-        if(zoneCooldowns[zone]===0){playNote(zone,.4+Math.random()*.4);zoneCooldowns[zone]=8;zoneActivity[zone]=1;}
-      }
-      if(c.x>W+60||c.x<-60)cars.splice(i,1);
-    }
-  }
 
   // Overlay
   function drawOverlay(){
@@ -363,8 +346,6 @@ input[type="file"]{display:none}
       if(zm){
         for(let i=0;i<NUM_ZONES;i++){if(zm[i]>.15&&zoneCooldowns[i]===0){playNote(i,zm[i]);zoneCooldowns[i]=10;zoneActivity[i]=1;}}
       }
-    }else if(currentSource==='live'){
-      updateSim(overlay.width,overlay.height);
     }
 
     drawOverlay();
