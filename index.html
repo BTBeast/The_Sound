@@ -14,7 +14,7 @@ h1{font-size:18px;font-weight:400;color:#fff;margin-bottom:12px}
 .top-bar button:hover{background:#222;border-color:#444}
 .top-bar button.active{background:#E24B9A;border-color:#E24B9A;color:#fff}
 .status{font-size:11px;color:#555;margin-bottom:8px;min-height:14px}
-.video-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;cursor:crosshair}
+.video-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;cursor:crosshair;transition:aspect-ratio .3s}
 video{width:100%;height:100%;object-fit:contain;display:block}
 video.mirror{transform:scaleX(-1)}
 canvas.mirror{transform:scaleX(-1)}
@@ -35,6 +35,19 @@ canvas#motionCanvas{display:none}
 .line-btn{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap}
 .line-btn:hover{background:#222;border-color:#444}
 input[type="file"]{display:none}
+@media(max-width:600px){
+  .container{padding:12px}
+  h1{font-size:16px;margin-bottom:8px}
+  .top-bar{gap:5px}
+  .top-bar button{padding:5px 8px;font-size:10px}
+  .controls{gap:8px;padding:8px 10px;margin-top:8px}
+  .cg{min-width:100px;gap:4px}
+  .cg label{font-size:10px}
+  .cg select{font-size:10px;padding:3px 6px}
+  .line-btn{padding:4px 8px;font-size:10px}
+  .note-flash{font-size:18px;top:6px;right:8px}
+  .tap-hint span{font-size:12px;padding:8px 14px}
+}
 </style>
 </head>
 <body>
@@ -210,6 +223,7 @@ input[type="file"]{display:none}
     clearActive();
     video.pause();video.srcObject=null;video.removeAttribute('src');video.load();
     video.style.display='block';statusEl.textContent='';video.classList.remove('mirror');overlay.classList.remove('mirror');
+    videoWrap.style.aspectRatio='16/9';
     document.getElementById(locId==='bot308'?'src308':'src309').classList.add('active');
     modeBadge.textContent='LIVE';
     loadHls(locations[locId].url);
@@ -241,6 +255,16 @@ input[type="file"]{display:none}
     document.getElementById('srcFile').classList.add('active');
     video.srcObject=null;video.src=URL.createObjectURL(file);video.play();
     canReadPixels=true;modeBadge.textContent='FILE';
+  });
+
+  // Adapt aspect ratio to video (portrait videos get taller container)
+  video.addEventListener('loadedmetadata',()=>{
+    const vw=video.videoWidth,vh=video.videoHeight;
+    if(vw&&vh){
+      const ratio=vw/vh;
+      // For portrait videos (taller than wide), use actual ratio; for landscape keep 16:9
+      videoWrap.style.aspectRatio=ratio<1?ratio.toFixed(3):'16/9';
+    }
   });
 
   // Click to place line
