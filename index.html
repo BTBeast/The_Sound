@@ -22,6 +22,9 @@ canvas#motionCanvas{display:none}
 .note-flash{position:absolute;top:10px;right:12px;font-size:24px;font-weight:300;color:#E24B9A;opacity:0;transition:opacity .12s;text-shadow:0 0 16px rgba(226,75,154,.5);pointer-events:none;z-index:3}
 .note-flash.show{opacity:1}
 .mode-badge{position:absolute;top:10px;left:10px;font-size:10px;padding:2px 8px;border-radius:4px;pointer-events:none;z-index:3;background:rgba(226,75,154,.7);color:#fff}
+.tap-hint{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:5;cursor:pointer;transition:opacity .3s}
+.tap-hint span{color:#fff;font-size:14px;padding:10px 20px;border:1px solid rgba(255,255,255,.3);border-radius:8px;backdrop-filter:blur(4px)}
+.tap-hint.hidden{opacity:0;pointer-events:none}
 .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:12px;background:#111;border-radius:8px;border:1px solid #1a1a1a}
 .cg{display:flex;align-items:center;gap:6px;flex:1;min-width:120px}
 .cg label{font-size:11px;color:#666;white-space:nowrap}
@@ -50,6 +53,7 @@ input[type="file"]{display:none}
     <canvas id="motionCanvas"></canvas>
     <div class="note-flash" id="noteFlash">C4</div>
     <div class="mode-badge" id="modeBadge">LIVE</div>
+    <div class="tap-hint" id="tapHint" onclick="this.classList.add('hidden')"><span>Tap to enable sound</span></div>
   </div>
   <div class="controls">
     <div class="cg"><label>Sensitivity</label><input type="range" min="5" max="80" value="25" id="sensitivity" step="1"><span id="sensVal">25</span></div>
@@ -93,14 +97,23 @@ input[type="file"]{display:none}
   const zoneColors=['#5DCAA5','#85B7EB','#AFA9EC','#ED93B1','#F0997B','#FAC775','#97C459','#E24B4A','#5DCAA5','#85B7EB','#AFA9EC','#ED93B1'];
 
   // Audio — always on, init on first user interaction
-  async function initAudio(){
+  // iOS WebKit requires synchronous AudioContext.resume() inside gesture handler
+  function initAudio(){
     if(audioReady)return;
-    await Tone.start();
-    await Tone.context.resume();
+    // Synchronous calls — must NOT use await, iOS breaks gesture chain
+    Tone.start();
+    Tone.context.resume();
+    // iOS unlock trick: play a silent buffer to unblock audio
+    try{
+      const buf=Tone.context.createBuffer(1,1,22050);
+      const src=Tone.context.createBufferSource();
+      src.buffer=buf;src.connect(Tone.context.destination);
+      src.start(0);
+    }catch(e){}
     reverb=new Tone.Reverb({decay:4,wet:.35}).toDestination();
     delayFx=new Tone.FeedbackDelay({delayTime:'8n',feedback:.2,wet:.15}).connect(reverb);
     makeSynth();audioReady=true;muted=false;
-    modeBadge.style.background='rgba(226,75,154,.7)';
+    statusEl.textContent='';
   }
   function makeSynth(){
     if(synth)synth.dispose();
@@ -113,17 +126,29 @@ input[type="file"]{display:none}
   document.getElementById('synthType').addEventListener('change',()=>{if(audioReady)makeSynth()});
   document.getElementById('sensitivity').addEventListener('input',e=>{document.getElementById('sensVal').textContent=e.target.value});
 
-  // Init audio on first user interaction (click or touch for iOS)
-  async function startAudio(){
+  // Init audio on first user interaction — multiple events for iOS
+  function startAudio(){
+    initAudio();
+    document.getElementById('tapHint').classList.add('hidden');
     document.removeEventListener('click',startAudio);
     document.removeEventListener('touchstart',startAudio);
-    await initAudio();
+    document.removeEventListener('touchend',startAudio);
   }
   document.addEventListener('click',startAudio);
   document.addEventListener('touchstart',startAudio,{passive:true});
+  document.addEventListener('touchend',startAudio,{passive:true});
+
+  // Periodically retry resuming context (iOS sometimes suspends it again)
+  setInterval(()=>{
+    if(audioReady&&Tone.context.state!=='running'){
+      Tone.context.resume();
+    }
+  },1000);
 
   function playNote(zone,intensity){
-    if(muted||!audioReady||Tone.context.state!=='running')return;
+    if(muted||!audioReady)return;
+    // Try to resume if suspended (iOS can re-suspend)
+    if(Tone.context.state!=='running'){Tone.context.resume();return;}
     const sc=scales[document.getElementById('scaleSelect').value];
     const idx=Math.floor((zone/NUM_ZONES)*sc.length);
     const midi=sc[Math.min(idx,sc.length-1)];
