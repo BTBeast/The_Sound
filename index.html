@@ -9,8 +9,8 @@
 body{background:#0a0a0a;color:#e0e0e0;font-family:-apple-system,'Segoe UI',sans-serif}
 .container{max-width:960px;margin:0 auto;padding:20px}
 h1{font-size:18px;font-weight:400;color:#fff;margin-bottom:12px}
-.top-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
-.top-bar button{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer;transition:all .2s}
+.top-bar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.top-bar button{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap}
 .top-bar button:hover{background:#222;border-color:#444}
 .top-bar button.active{background:#E24B9A;border-color:#E24B9A;color:#fff}
 .status{font-size:11px;color:#555;margin-bottom:8px;min-height:14px}
@@ -26,27 +26,26 @@ canvas#motionCanvas{display:none}
 .tap-hint{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:5;cursor:pointer;transition:opacity .3s}
 .tap-hint span{color:#fff;font-size:14px;padding:10px 20px;border:1px solid rgba(255,255,255,.3);border-radius:8px;backdrop-filter:blur(4px)}
 .tap-hint.hidden{opacity:0;pointer-events:none}
-.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:12px;background:#111;border-radius:8px;border:1px solid #1a1a1a}
-.cg{display:flex;align-items:center;gap:6px;flex:1;min-width:120px}
-.cg label{font-size:11px;color:#666;white-space:nowrap}
-.cg input[type="range"]{flex:1;accent-color:#E24B9A;height:3px}
-.cg span{font-size:11px;color:#888;min-width:18px}
-.cg select{background:#1a1a1a;color:#ccc;border:1px solid #2a2a2a;border-radius:5px;padding:4px 8px;font-size:11px}
-.line-btn{background:#1a1a1a;color:#aaa;border:1px solid #2a2a2a;border-radius:5px;padding:5px 12px;font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap}
-.line-btn:hover{background:#222;border-color:#444}
+.ctrl-stack{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.ctrl-row{display:flex;align-items:center;gap:10px}
+.ctrl-row label{font-size:13px;color:#888;white-space:nowrap}
+.ctrl-row input[type="range"]{flex:1;accent-color:#E24B9A;height:4px}
+.ctrl-row span{font-size:13px;color:#888;min-width:24px;text-align:right}
+.ctrl-btns{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ctrl-pill{background:#1a1a1a;color:#ccc;border:1px solid #2a2a2a;border-radius:20px;padding:8px 20px;font-size:13px;cursor:pointer;transition:all .2s;text-align:center;white-space:nowrap}
+.ctrl-pill:hover{background:#222;border-color:#444}
+.ctrl-pill:active{background:#2a2a2a}
 input[type="file"]{display:none}
 @media(max-width:600px){
-  .container{padding:12px}
-  h1{font-size:16px;margin-bottom:8px}
-  .top-bar{gap:5px}
-  .top-bar button{padding:5px 8px;font-size:10px}
-  .controls{gap:8px;padding:8px 10px;margin-top:8px}
-  .cg{min-width:100px;gap:4px}
-  .cg label{font-size:10px}
-  .cg select{font-size:10px;padding:3px 6px}
-  .line-btn{padding:4px 8px;font-size:10px}
+  .container{padding:10px 10px 16px}
+  h1{font-size:15px;margin-bottom:8px}
+  .top-bar{gap:4px;margin-bottom:6px}
+  .top-bar button{padding:5px 8px;font-size:9px}
   .note-flash{font-size:18px;top:6px;right:8px}
   .tap-hint span{font-size:12px;padding:8px 14px}
+  .ctrl-stack{gap:10px;margin-top:10px}
+  .ctrl-row label{font-size:12px;min-width:65px}
+  .ctrl-pill{padding:8px 16px;font-size:12px}
 }
 </style>
 </head>
@@ -69,15 +68,20 @@ input[type="file"]{display:none}
     <div class="mode-badge" id="modeBadge">LIVE</div>
     <div class="tap-hint" id="tapHint" onclick="this.classList.add('hidden')"><span>Tap to enable sound</span></div>
   </div>
-  <div class="controls">
-    <div class="cg"><label>Sensitivity</label><input type="range" min="5" max="80" value="25" id="sensitivity" step="1"><span id="sensVal">25</span></div>
-    <button class="line-btn" id="lineDir" onclick="toggleLineDir()">Line: vertical</button>
-    <div class="cg"><label>Scale</label><select id="scaleSelect">
-      <option value="pentatonic">Pentatonic</option><option value="major">Major</option><option value="minor">Minor</option><option value="japanese">Japanese</option><option value="blues">Blues</option>
-    </select></div>
-    <div class="cg"><label>Synth</label><select id="synthType">
-      <option value="sine">Sine</option><option value="triangle">Triangle</option><option value="am">AM</option><option value="fm">FM</option><option value="pluck">Pluck</option>
-    </select></div>
+  <div class="ctrl-stack">
+    <div class="ctrl-row">
+      <label>Sensitivity</label>
+      <input type="range" min="5" max="80" value="25" id="sensitivity" step="1">
+      <span id="sensVal">25</span>
+    </div>
+    <div class="ctrl-btns">
+      <label style="font-size:13px;color:#888">Line</label>
+      <button class="ctrl-pill" id="lineDir" onclick="toggleLineDir()">Vertical</button>
+      <label style="font-size:13px;color:#888">Scale</label>
+      <button class="ctrl-pill" id="scaleBtn" onclick="cycleScale()">Pentatonic</button>
+      <label style="font-size:13px;color:#888">Synth</label>
+      <button class="ctrl-pill" id="synthBtn" onclick="cycleSynth()">Sine</button>
+    </div>
   </div>
 </div>
 
@@ -98,6 +102,12 @@ input[type="file"]{display:none}
   const NUM_ZONES=12;
   let zoneCooldowns=new Array(NUM_ZONES).fill(0),zoneActivity=new Array(NUM_ZONES).fill(0);
 
+  const scaleNames=['pentatonic','major','minor','japanese','blues'];
+  const scaleLabels=['Pentatonic','Major','Minor','Japanese','Blues'];
+  const synthNames=['sine','triangle','am','fm','pluck'];
+  const synthLabels=['Sine','Triangle','AM','FM','Pluck'];
+  let scaleIdx=0,synthIdx=0;
+
   const scales={
     pentatonic:[48,50,52,55,57,60,62,64,67,69,72,74,76,79,81],
     major:[48,50,52,53,55,57,59,60,62,64,65,67,69,71,72],
@@ -110,14 +120,22 @@ input[type="file"]{display:none}
   function midiFreq(m){return 440*Math.pow(2,(m-69)/12)}
   const zoneColors=['#5DCAA5','#85B7EB','#AFA9EC','#ED93B1','#F0997B','#FAC775','#97C459','#E24B4A','#5DCAA5','#85B7EB','#AFA9EC','#ED93B1'];
 
-  // Audio — always on, init on first user interaction
-  // iOS WebKit requires synchronous AudioContext.resume() inside gesture handler
+  // Cycle buttons
+  window.cycleScale=function(){
+    scaleIdx=(scaleIdx+1)%scaleNames.length;
+    document.getElementById('scaleBtn').textContent=scaleLabels[scaleIdx];
+  };
+  window.cycleSynth=function(){
+    synthIdx=(synthIdx+1)%synthNames.length;
+    document.getElementById('synthBtn').textContent=synthLabels[synthIdx];
+    if(audioReady)makeSynth();
+  };
+
+  // Audio
   function initAudio(){
     if(audioReady)return;
-    // Synchronous calls — must NOT use await, iOS breaks gesture chain
     Tone.start();
     Tone.context.resume();
-    // iOS unlock trick: play a silent buffer to unblock audio
     try{
       const buf=Tone.context.createBuffer(1,1,22050);
       const src=Tone.context.createBufferSource();
@@ -131,16 +149,14 @@ input[type="file"]{display:none}
   }
   function makeSynth(){
     if(synth)synth.dispose();
-    const t=document.getElementById('synthType').value;
+    const t=synthNames[synthIdx];
     if(t==='pluck')synth=new Tone.PluckSynth({volume:-8}).connect(delayFx);
     else if(t==='am')synth=new Tone.AMSynth({volume:-10,oscillator:{type:'sine'},envelope:{attack:.05,decay:.3,sustain:.2,release:1.5}}).connect(delayFx);
     else if(t==='fm')synth=new Tone.FMSynth({volume:-10,modulationIndex:3,envelope:{attack:.02,decay:.2,sustain:.1,release:1}}).connect(delayFx);
     else synth=new Tone.Synth({volume:-10,oscillator:{type:t},envelope:{attack:.02,decay:.3,sustain:.15,release:1.5}}).connect(delayFx);
   }
-  document.getElementById('synthType').addEventListener('change',()=>{if(audioReady)makeSynth()});
   document.getElementById('sensitivity').addEventListener('input',e=>{document.getElementById('sensVal').textContent=e.target.value});
 
-  // Init audio on first user interaction — multiple events for iOS
   function startAudio(){
     initAudio();
     document.getElementById('tapHint').classList.add('hidden');
@@ -152,23 +168,19 @@ input[type="file"]{display:none}
   document.addEventListener('touchstart',startAudio,{passive:true});
   document.addEventListener('touchend',startAudio,{passive:true});
 
-  // Periodically retry resuming context (iOS sometimes suspends it again)
   setInterval(()=>{
-    if(audioReady&&Tone.context.state!=='running'){
-      Tone.context.resume();
-    }
+    if(audioReady&&Tone.context.state!=='running') Tone.context.resume();
   },1000);
 
   function playNote(zone,intensity){
     if(muted||!audioReady)return;
-    // Try to resume if suspended (iOS can re-suspend)
     if(Tone.context.state!=='running'){Tone.context.resume();return;}
-    const sc=scales[document.getElementById('scaleSelect').value];
+    const sc=scales[scaleNames[scaleIdx]];
     const idx=Math.floor((zone/NUM_ZONES)*sc.length);
     const midi=sc[Math.min(idx,sc.length-1)];
     try{
       const freq=midiFreq(midi),vol=Math.min(.8,.3+intensity*2);
-      if(document.getElementById('synthType').value==='pluck')synth.triggerAttack(freq,Tone.now());
+      if(synthNames[synthIdx]==='pluck')synth.triggerAttack(freq,Tone.now());
       else synth.triggerAttackRelease(freq,'8n',Tone.now(),vol);
     }catch(e){}
     noteCount++;
@@ -180,7 +192,7 @@ input[type="file"]{display:none}
   // Line direction toggle
   window.toggleLineDir=function(){
     lineHorizontal=!lineHorizontal;
-    document.getElementById('lineDir').textContent='Line: '+(lineHorizontal?'horizontal':'vertical');
+    document.getElementById('lineDir').textContent=lineHorizontal?'Horizontal':'Vertical';
     linePos=0.5;prevFrame=null;
   };
 
@@ -199,12 +211,11 @@ input[type="file"]{display:none}
       hlsInstance.on(Hls.Events.MANIFEST_PARSED,()=>{
         video.play().then(()=>{
           modeBadge.textContent='LIVE';statusEl.textContent='';
-          // HLS.js uses MSE (blob URL) so canvas should not be tainted — try reading pixels
           setTimeout(()=>{canReadPixels=true;},500);
         }).catch(()=>{});
       });
       hlsInstance.on(Hls.Events.ERROR,(ev,data)=>{
-        if(data.fatal){modeBadge.textContent='ERROR';statusEl.textContent='Stream failed — open this file directly in Chrome if viewing in Cowork.';}
+        if(data.fatal){modeBadge.textContent='ERROR';statusEl.textContent='Stream failed — open this file directly in Chrome.';}
       });
     }else if(video.canPlayType('application/vnd.apple.mpegurl')){
       video.src=url;
@@ -212,12 +223,10 @@ input[type="file"]{display:none}
     }else{statusEl.textContent='HLS not supported in this browser.';}
   }
 
-  // Clear active state on all source buttons
   function clearActive(){
     document.querySelectorAll('.top-bar button').forEach(b=>b.classList.remove('active'));
   }
 
-  // Switch between camera locations
   window.switchLocation=function(locId){
     currentSource='live';currentLocation=locId;prevFrame=null;canReadPixels=false;destroyHls();
     clearActive();
@@ -229,7 +238,6 @@ input[type="file"]{display:none}
     loadHls(locations[locId].url);
   };
 
-  // Source switching (webcam / file)
   window.switchSource=function(src){
     currentSource=src;prevFrame=null;canReadPixels=false;destroyHls();
     clearActive();
@@ -257,17 +265,14 @@ input[type="file"]{display:none}
     canReadPixels=true;modeBadge.textContent='FILE';
   });
 
-  // Adapt aspect ratio to video (portrait videos get taller container)
   video.addEventListener('loadedmetadata',()=>{
     const vw=video.videoWidth,vh=video.videoHeight;
     if(vw&&vh){
       const ratio=vw/vh;
-      // For portrait videos (taller than wide), use actual ratio; for landscape keep 16:9
       videoWrap.style.aspectRatio=ratio<1?ratio.toFixed(3):'16/9';
     }
   });
 
-  // Click to place line
   videoWrap.addEventListener('click',e=>{
     const rect=videoWrap.getBoundingClientRect();
     const isMirrored=video.classList.contains('mirror');
@@ -279,7 +284,6 @@ input[type="file"]{display:none}
     linePos=Math.max(.05,Math.min(.95,linePos));
   });
 
-  // Motion detection
   function detectMotion(){
     if(!canReadPixels||video.readyState<2||video.videoWidth===0)return null;
     const w=160,h=120;motionCanvas.width=w;motionCanvas.height=h;
@@ -288,7 +292,7 @@ input[type="file"]{display:none}
       const frame=mctx.getImageData(0,0,w,h);
       if(!prevFrame){prevFrame=frame;return null}
       const raw=parseInt(document.getElementById('sensitivity').value);
-      const threshold=85-raw; // invert: higher slider = lower threshold = more sensitive
+      const threshold=85-raw;
       const sw=3,zoneMotion=new Array(NUM_ZONES).fill(0);
 
       if(lineHorizontal){
@@ -320,8 +324,6 @@ input[type="file"]{display:none}
     }catch(e){canReadPixels=false;return null}
   }
 
-
-  // Overlay
   function drawOverlay(){
     const w=overlay.width,h=overlay.height;
     octx.clearRect(0,0,w,h);
@@ -350,14 +352,12 @@ input[type="file"]{display:none}
     }
   }
 
-  // Resize
   function resize(){
     const w=videoWrap.clientWidth,h=videoWrap.clientHeight;
     overlay.width=w;overlay.height=h;
   }
   window.addEventListener('resize',resize);
 
-  // Main loop
   let fc=0;
   function loop(){
     requestAnimationFrame(loop);
